@@ -19,6 +19,17 @@ def execute_builtin(command, args)
   end
 end
 
+def execute_external(command, args)
+  begin
+    pid = spawn(command, *args)
+    Process.wait(pid)
+  rescue Errno::ENOENT
+    puts "#{command}: command not found"
+  rescue => e
+    puts "Error: #{e.message}"
+  end
+end
+
 loop do
   # Display a prompt
   print "> "
@@ -42,6 +53,5 @@ loop do
   end
 
   # Run external commands
-  pid = spawn(command, *args)
-  Process.wait(pid)
+  execute_external(command, args)
 end

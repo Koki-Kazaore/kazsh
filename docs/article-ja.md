@@ -156,3 +156,62 @@ loop do
   Process.wait(pid)
 end
 ```
+
+## Step 5: エラーハンドリング
+
+存在しないコマンドを実行した場合のエラー処理を追加します。
+
+```ruby
+#!/usr/bin/env ruby
+
+def execute_builtin(command, args)
+  case command
+  when "cd"
+    dir = args.empty? ? ENV["HOME"] : args[0]
+    begin
+      Dir.chdir(dir)
+      true
+    rescue => e
+      puts "cd: #{e.message}"
+      true
+    end
+  when "exit"
+    exit
+  else
+    false
+  end
+end
+
+def execute_external(command, args)
+  begin
+    pid = spawn(command, *args)
+    Process.wait(pid)
+  rescue Errno::ENOENT
+    puts "#{command}: command not found"
+  rescue => e
+    puts "Error: #{e.message}"
+  end
+end
+
+loop do
+  print "> "
+  $stdout.flush
+
+  input = gets
+  break if input.nil?
+
+  parts = input.chomp.split
+  command = parts[0]
+  args = parts[1..-1]
+
+  next if command.nil? || command.empty?
+
+  # ビルトインコマンドを実行
+  if execute_builtin(command, args)
+    next
+  end
+
+  # 外部コマンドを実行
+  execute_external(command, args)
+end
+```
