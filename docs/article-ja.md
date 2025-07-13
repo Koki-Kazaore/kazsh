@@ -40,3 +40,69 @@ $ ruby shell.rb
 ls  # 入力
 # lsコマンドの出力が表示される
 ```
+
+## Step 2: ループで継続的にコマンドを受け付ける
+
+シェルは通常、複数のコマンドを連続して実行できる必要があります。
+
+```ruby
+#!/usr/bin/env ruby
+
+loop do
+  # プロンプトを表示
+  print "> "
+
+  # 標準出力をフラッシュして即座に表示
+  $stdout.flush
+
+  # 入力を読み込む
+  input = gets
+
+  # Ctrl+D (EOF) で終了
+  break if input.nil?
+
+  # コマンドを実行
+  command = input.chomp
+  system(command)
+end
+```
+
+実行例：
+```bash
+$ ruby shell.rb
+> ls
+# lsの出力
+> pwd
+# pwdの出力
+> exit  # Ctrl+Dで終了
+```
+
+## Step 3: 引数付きコマンドのサポート
+
+`ls -la` のような引数付きコマンドを正しく処理できるようにします。
+
+```ruby
+#!/usr/bin/env ruby
+
+loop do
+  print "> "
+  $stdout.flush
+
+  input = gets
+  break if input.nil?
+
+  # 空白で分割してコマンドと引数を分離
+  parts = input.chomp.split
+  command = parts[0]
+  args = parts[1..-1]
+
+  # コマンドが入力されていない場合はスキップ
+  next if command.nil? || command.empty?
+
+  # プロセスを起動
+  pid = spawn(command, *args)
+
+  # プロセスの終了を待つ
+  Process.wait(pid)
+end
+```
