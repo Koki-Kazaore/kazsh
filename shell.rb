@@ -1,10 +1,19 @@
 #!/usr/bin/env ruby
 
-# Read one line from standard input
-input = gets
+loop do
+  # Display a prompt
+  print "> "
 
-# Remove new line characters
-command = input.chomp
+  # Flush and immediately display standard output
+  $stdout.flush
 
-# Execute command
-system(command)
+  # Read one line from standard input
+  input = gets
+
+  # Ctrl+D (EOF) to exit
+  break if input.nil?
+
+  # Execute command
+  command = input.chomp
+  system(command)
+end
