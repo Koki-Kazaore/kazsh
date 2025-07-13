@@ -1,10 +1,27 @@
 #!/usr/bin/env ruby
 
+def execute_builtin(command, args)
+  case command
+  when "cd"
+    # If no argument, go to home directory
+    dir = args.empty? ? ENV['HOME'] : args[0]
+    begin
+      Dir.chdir(dir)
+      true
+    rescue => e
+      puts "cd: #{e.message}"
+      true
+    end
+  when "exit"
+    exit
+  else
+    false
+  end
+end
+
 loop do
   # Display a prompt
   print "> "
-
-  # Flush and immediately display standard output
   $stdout.flush
 
   # Read one line from standard input
@@ -19,9 +36,12 @@ loop do
   # Skip if no command is entered
   next if command.nil? || command.empty?
 
-  # Start process
-  pid = spawn(command, *args)
+  # Run built-in commands
+  if execute_builtin(command, args)
+    next
+  end
 
-  # Wait for the process to finish
+  # Run external commands
+  pid = spawn(command, *args)
   Process.wait(pid)
 end
