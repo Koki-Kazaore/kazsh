@@ -106,3 +106,53 @@ loop do
   Process.wait(pid)
 end
 ```
+
+## Step 4: ビルトインコマンドの実装
+
+`cd` コマンドのようなシェル内部で実行する必要があるコマンドを実装します。
+
+```ruby
+#!/usr/bin/env ruby
+
+def execute_builtin(command, args)
+  case command
+  when "cd"
+    # 引数がない場合はホームディレクトリへ
+    dir = args.empty? ? ENV["HOME"] : args[0]
+    begin
+      Dir.chdir(dir)
+      true
+    rescue => e
+      puts "cd: #{e.message}"
+      true
+    end
+  when "exit"
+    exit
+  else
+    false
+  end
+end
+
+loop do
+  print "> "
+  $stdout.flush
+
+  input = gets
+  break if input.nil?
+
+  parts = input.chomp.split
+  command = parts[0]
+  args = parts[1..-1]
+
+  next if command.nil? || command.empty?
+
+  # ビルトインコマンドを実行
+  if execute_builtin(command, args)
+    next
+  end
+
+  # 外部コマンドを実行
+  pid = spawn(command, *args)
+  Process.wait(pid)
+end
+```
