@@ -215,3 +215,119 @@ loop do
   execute_external(command, args)
 end
 ```
+
+## Step 6: パイプラインの実装
+
+`ls | grep ruby` のようなパイプラインをサポートします。
+
+```ruby
+#!/usr/bin/env ruby
+require 'open3'
+
+def execute_builtin(command, args)
+  case command
+  when "cd"
+    dir = args.empty? ? ENV["HOME"] : args[0]
+    begin
+      Dir.chdir(dir)
+      true
+    rescue => e
+      puts "cd: #{e.message}"
+      true
+    end
+  when "exit"
+    exit
+  else
+    false
+  end
+end
+
+def execute_pipeline(commands)
+  return if commands.empty?
+
+  # 単一コマンドの場合
+  if commands.length == 1
+    parts = commands[0].strip.split
+    command = parts[0]
+    args = parts[1..-1]
+
+    if execute_builtin(command, args)
+      return
+    end
+
+    begin
+      pid = spawn(command, *args)
+      Process.wait(pid)
+    rescue Errno::ENOENT
+      puts "#{command}: command not found"
+    rescue => e
+      puts "Error: #{e.message}"
+    end
+    return
+  end
+
+  # パイプラインの場合
+  ios = []
+  pids = []
+
+  commands.each_with_index do |cmd, index|
+    parts = cmd.strip.split
+    command = parts[0]
+    args = parts[1..-1]
+
+    # パイプの作成
+    if index < commands.length - 1
+      read_pipe, write_pipe = IO.pipe
+      ios << [read_pipe, write_pipe]
+    end
+
+    # 標準入力の設定
+    stdin = index == 0 ? :in : ios[index - 1][0]
+
+    # 標準出力の設定
+    stdout = index == commands.length - 1 ? :out : ios[index][1]
+
+    # プロセスの起動
+    begin
+      pid = spawn(command, *args, :in => stdin, :out => stdout)
+      pids << pid
+    rescue Errno::ENOENT
+      puts "#{command}: command not found"
+      # クリーンアップ
+      ios.each { |r, w| [r, w].each(&:close) rescue nil }
+      pids.each { |p| Process.kill("TERM", p) rescue nil }
+      return
+    end
+
+    # 使用済みのパイプを閉じる
+    if index > 0
+      ios[index - 1][0].close
+    end
+    if index < commands.length - 1
+      ios[index][1].close
+    end
+  end
+
+  # すべてのプロセスの終了を待つ
+  pids.each { |pid| Process.wait(pid) }
+
+  # 残りのパイプを閉じる
+  ios.each { |r, w| [r, w].each(&:close) rescue nil }
+end
+
+loop do
+  print "> "
+  $stdout.flush
+
+  input = gets
+  break if input.nil?
+
+  # パイプで分割
+  commands = input.chomp.split("|")
+
+  next if commands.empty?
+
+  execute_pipeline(commands)
+end
+```
+
